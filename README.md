@@ -46,8 +46,17 @@ This project uses **Python 3.10+** and 20 direct dependencies:
 - `beautifulsoup4` + `lxml` - Table extraction
 - `openpyxl` - Excel file support
 
-### Installation
+## Installation
 
+```bash
+# 1. Clone the repository
+git clone https://github.com/Maral-Salajegheh/citibike-axa-data-challenge.git
+cd repo root
+
+# 2. Download NYPD crash data more information is given 
+curl -L "https://data.cityofnewyork.us/api/views/h9gi-nx95/rows.csv?accessType=DOWNLOAD" -o h9gi-nx95_full.csv
+# Save to: your repo root/data/raw/nypd/
+```
 ```bash
 # The Makefile handles everything
 make setup
@@ -61,23 +70,15 @@ pip install -r requirements.txt
 **Note**: `requirements.txt` lists packages you directly use.
 
 ## Run
-
 ```bash
-# 1. Clone the repository
-git clone https://github.com/Maral-Salajegheh/citibike-axa-data-challenge.git
-cd repo root
 
-# 2. Download NYPD crash data more information is given 
-curl -L "https://data.cityofnewyork.us/api/views/h9gi-nx95/rows.csv?accessType=DOWNLOAD" -o h9gi-nx95_full.csv
-# Save to: your repo root/data/raw/nypd/
 
 # 3. Run the complete pipeline (downloads data, analyzes, generates reports) you can run the whole pipline for any year, month abd raduis 
 make all-both YEARS="YYYY YYYY" MONTHS="1 2 ... 12" RADII_M="Any Raduis" AXA_RADIUS="Any Raduism"
-Or you can fixe Raiduis in makefile then run 
+Or you can fixe Raiduis in makefile then run (it is already fixed to 500 m)
 make all-both YEARS="2017 2023" MONTHS="1 2" 
 NYC or Jersey City
 make all MODE=nyc    # or MODE=jc
-
 
 
 # 4. View the report
