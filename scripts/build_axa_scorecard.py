@@ -27,9 +27,9 @@ from __future__ import annotations
 
 import argparse
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Tuple
 
 import numpy as np
 import pandas as pd
@@ -48,7 +48,7 @@ def poisson_rate_ci(
     exposure: float,
     scale: float = 100_000.0,
     alpha: float = 0.05,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """
     Exact Poisson CI for rate=(count/exposure)*scale.
     If scipy isn't available, return (rate, rate).
@@ -189,7 +189,7 @@ class EBScope:
     keys: tuple[str, ...]
 
     @staticmethod
-    def from_arg(arg: str) -> "EBScope":
+    def from_arg(arg: str) -> EBScope:
         a = str(arg).strip().lower()
         if a == "mode":
             return EBScope("mode", ("mode",))
@@ -208,7 +208,9 @@ def main() -> None:
         description="Build AXA partner scorecard from station risk exposure data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    ap.add_argument("--in-dir", required=True, help="Run summary directory, e.g. summaries/<RUN_TAG>")
+    ap.add_argument(
+        "--in-dir", required=True, help="Run summary directory, e.g. summaries/<RUN_TAG>"
+    )
     ap.add_argument("--out-dir", required=True, help="Output directory (usually same as --in-dir)")
     ap.add_argument(
         "--risk-file",
@@ -220,9 +222,21 @@ def main() -> None:
         default="500m",
         help="Crash proximity radius (e.g. 250m, 750m, 750, 1km) or 'auto'/'max' (max available).",
     )
-    ap.add_argument("--alpha", type=float, default=0.05, help="Alpha for confidence intervals (default 0.05 -> 95%% CI)")
-    ap.add_argument("--min-trips", type=int, default=5_000, help="Minimum trips for credible risk ranking")
-    ap.add_argument("--m-prior", type=float, default=None, help="EB prior strength (pseudo-trips). If omitted, auto-calibrated.")
+    ap.add_argument(
+        "--alpha",
+        type=float,
+        default=0.05,
+        help="Alpha for confidence intervals (default 0.05 -> 95%% CI)",
+    )
+    ap.add_argument(
+        "--min-trips", type=int, default=5_000, help="Minimum trips for credible risk ranking"
+    )
+    ap.add_argument(
+        "--m-prior",
+        type=float,
+        default=None,
+        help="EB prior strength (pseudo-trips). If omitted, auto-calibrated.",
+    )
     ap.add_argument(
         "--eb-scope",
         default="mode",
@@ -292,17 +306,26 @@ def main() -> None:
     df["exposure_trips"] = df["trips"]
     df["crash_count"] = df[crash_col]
     df["risk_rate_per_100k_trips"] = df[raw_rate_col]
+    
+    # Define groupby to month-normalized ranking
+    has_period = "year" in df.columns and "month" in df.columns
+    group_keys = ["mode", "year", "month"] if has_period else ["mode"]
+    group_keys_no_mode = ["year", "month"] if has_period else []
 
     # Poisson CI for raw rate
     ci = df.apply(
-        lambda r: poisson_rate_ci(int(r["crash_count"]), float(r["exposure_trips"]), alpha=args.alpha),
+        lambda r: poisson_rate_ci(
+            int(r["crash_count"]), float(r["exposure_trips"]), alpha=args.alpha
+        ),
         axis=1,
     )
     df["risk_rate_ci_low"] = [x[0] for x in ci]
     df["risk_rate_ci_high"] = [x[1] for x in ci]
 
     # Exposure percentile (within mode, to match original intent)
-    df["exposure_index_pct"] = df.groupby("mode", dropna=False)["exposure_trips"].transform(pct_rank_0_100)
+    df["exposure_index_pct"] = df.groupby(group_keys, dropna=False)["exposure_trips"].transform(
+        pct_rank_0_100
+    )
 
     min_trips = int(args.min_trips)
     out_parts: list[pd.DataFrame] = []
@@ -310,7 +333,7 @@ def main() -> None:
     # Never rank across modes: process each mode independently.
     for mode, g_mode in df.groupby("mode", dropna=False):
         g_mode = g_mode.copy()
-        print(f"\n{'='*70}\nProcessing mode: {mode}\n{'='*70}")
+        print(f"\n{'=' * 70}\nProcessing mode: {mode}\n{'=' * 70}")
 
         # Credibility for ranking
         sufficient = g_mode["exposure_trips"] >= min_trips
@@ -321,7 +344,9 @@ def main() -> None:
         if int(sufficient.sum()) < 10:
             risk_has_signal = False
         else:
-            risk_has_signal = (g_mode.loc[sufficient, "risk_rate_per_100k_trips"].nunique(dropna=True) > 1)
+            risk_has_signal = (
+                g_mode.loc[sufficient, "risk_rate_per_100k_trips"].nunique(dropna=True) > 1
+            )
 
         g_mode["risk_proxy_available"] = bool(risk_has_signal)
 
@@ -375,7 +400,11 @@ def main() -> None:
 
         # Risk ranking ONLY for credible rows (within mode)
         g_mode["risk_index_pct"] = np.nan
-        g_mode.loc[sufficient, "risk_index_pct"] = pct_rank_0_100(g_mode.loc[sufficient, "eb_risk_rate_per_100k_trips"])
+        # Line ~281: Risk percentile (inside the mode loop, so no "mode" in groupby)
+        if group_keys_no_mode:
+            g_mode.loc[sufficient, "risk_index_pct"] = g_mode.loc[sufficient].groupby(group_keys_no_mode, dropna=False)["eb_risk_rate_per_100k_trips"].transform(pct_rank_0_100)
+        else:
+            g_mode.loc[sufficient, "risk_index_pct"] = pct_rank_0_100(g_mode.loc[sufficient, "eb_risk_rate_per_100k_trips"])
 
         # Expected incidents proxy (freq × exposure)
         g_mode["expected_incidents_proxy"] = eb_per_trip_all * g_mode["exposure_trips"]
@@ -384,11 +413,13 @@ def main() -> None:
         g_mode["risk_pct"] = g_mode["risk_index_pct"].fillna(0.0) / 100.0
 
         # Priority score: percentile of expected incidents within mode
-        g_mode["axa_priority_score"] = pct_rank_0_100(g_mode["expected_incidents_proxy"]) / 100.0
-        g_mode["scoring_strategy"] = (
-            f"eb_expected_incidents_mintrips{min_trips}_"
-            f"{scope.name}_"
-            + ("mpriorAUTO" if args.m_prior is None else f"mprior{int(args.m_prior)}")
+        # Line ~288: Priority score
+        if group_keys_no_mode:
+           g_mode["axa_priority_score"] = g_mode.groupby(group_keys_no_mode, dropna=False)["expected_incidents_proxy"].transform(pct_rank_0_100) / 100.0
+        else:
+           g_mode["axa_priority_score"] = pct_rank_0_100(g_mode["expected_incidents_proxy"]) / 100.0
+        g_mode["scoring_strategy"] = f"eb_expected_incidents_mintrips{min_trips}_{scope.name}_" + (
+            "mpriorAUTO" if args.m_prior is None else f"mprior{int(args.m_prior)}"
         )
 
         # Hotspot heuristics (kept consistent with your original approach)
@@ -398,7 +429,9 @@ def main() -> None:
             & (g_mode["credibility_flag"] == "credible")
         )
         g_mode["product_hotspot"] = g_mode["exposure_index_pct"] >= 80.0
-        g_mode["acquisition_hotspot"] = (g_mode["exposure_index_pct"] >= 70.0) & (g_mode["risk_pct"] <= 0.3)
+        g_mode["acquisition_hotspot"] = (g_mode["exposure_index_pct"] >= 70.0) & (
+            g_mode["risk_pct"] <= 0.3
+        )
 
         out_parts.append(g_mode)
 
@@ -436,7 +469,9 @@ def main() -> None:
     out_cols = [c for c in out_cols if c in out_all.columns]
     out = out_all[out_cols].copy()
 
-    out = out.sort_values(["axa_priority_score", "exposure_trips"], ascending=False).reset_index(drop=True)
+    out = out.sort_values(["axa_priority_score", "exposure_trips"], ascending=False).reset_index(
+        drop=True
+    )
 
     out_path = out_dir / f"axa_partner_scorecard_{radius_m}m.csv"
     out.to_csv(out_path, index=False)
@@ -446,7 +481,9 @@ def main() -> None:
     if scope.name != "mode":
         print(f"EB scope used: {scope.name}")
     if "year" in out.columns or "month" in out.columns:
-        print("NOTE: output is station-period rows if year/month were present in the input risk file.")
+        print(
+            "NOTE: output is station-period rows if year/month were present in the input risk file."
+        )
 
 
 if __name__ == "__main__":
