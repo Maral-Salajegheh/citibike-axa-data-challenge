@@ -26,13 +26,13 @@ AXA_RADIUS ?= 500m
 #   station_risk_exposure_plus_crashproximity.csv
 #   station_risk_exposure_plus_crashproximity_by_year.csv
 #   station_risk_exposure_plus_crashproximity_by_year_month.csv
-AXA_RISK_FILE ?= station_risk_exposure_plus_crashproximity.csv
+AXA_RISK_FILE ?= station_risk_exposure_plus_crashproximity_by_year_month.csv
 
 # EB grouping scope:
 #   mode (default; overall station scorecard per mode)
 #   mode_year
 #   mode_year_month
-AXA_EB_SCOPE ?= mode
+AXA_EB_SCOPE ?= mode_year_month
 
 # Credibility threshold for ranking
 AXA_MIN_TRIPS ?= 5000
