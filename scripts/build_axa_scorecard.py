@@ -143,40 +143,66 @@ def eb_rate_per_trip(counts: pd.Series, exposures: pd.Series, m_prior: float) ->
     return (counts + prior_count) / (exposures + float(m_prior))
 
 
-def compute_optimal_eb_prior(counts: pd.Series, exposures: pd.Series) -> float:
+def compute_optimal_eb_prior(
+    counts: pd.Series,
+    exposures: pd.Series,
+    *,
+    min_exposure_for_fit: int,
+) -> float:
     """
-    Method-of-moments estimate for EB prior strength m (bounded).
+    Robust method-of-moments estimate for EB prior strength m (bounded).
 
-    Fallback for small groups (<30 rows): m=20,000 (pseudo-trips).
-    This is intentionally conservative and prevents tiny-denominator noise
-    from dominating when the group is too small to estimate m stably.
+    A) Only use rows with exposures >= min_exposure_for_fit (e.g. min-trips)
+       to avoid tiny-denominator rows inflating variance.
+    B) Use exposure-weighted moments so high-exposure rows drive the estimate.
+
+    Fallback for small groups (<30 rows after filtering): m=20,000 (pseudo-trips).
     """
-    valid = (exposures > 0) & (counts >= 0)
+    exposures = pd.to_numeric(exposures, errors="coerce").fillna(0.0).astype(float)
+    counts = pd.to_numeric(counts, errors="coerce").fillna(0.0).astype(float)
+
+    valid = (exposures > 0) & (counts >= 0) & (exposures >= float(min_exposure_for_fit))
     n_valid = int(valid.sum())
     if n_valid < 30:
-        print("  WARNING: <30 valid observations for EB prior estimation -> using m=20,000")
+        print(
+            f"  WARNING: <30 valid observations for EB prior estimation "
+            f"(after min_exposure_for_fit={min_exposure_for_fit}) -> using m=20,000"
+        )
         return 20000.0
 
-    counts_v = counts[valid].astype(float)
-    exposures_v = exposures[valid].astype(float)
+    counts_v = counts[valid]
+    exposures_v = exposures[valid]
     rates = counts_v / exposures_v
 
-    mean_rate = float(rates.mean())
-    var_observed = float(rates.var(ddof=1))
+    # B) exposure-weighted moments
+    w = exposures_v.to_numpy()
+    x = rates.to_numpy()
 
-    mean_exposure = float(exposures_v.mean())
-    var_sampling = (mean_rate / mean_exposure) if mean_exposure > 0 else 0.0
+    w_sum = float(w.sum())
+    if w_sum <= 0 or not np.isfinite(w_sum):
+        print("  WARNING: invalid weights -> using m=20,000")
+        return 20000.0
 
-    var_true = max(1e-10, var_observed - var_sampling)
+    mean_rate = float(np.average(x, weights=w))
+    var_observed = float(np.average((x - mean_rate) ** 2, weights=w))
 
-    if var_true < 1e-10 or not np.isfinite(var_true):
+    # better "effective" exposure scale than simple mean(exposure)
+    mean_exposure_eff = float(np.average(exposures_v.to_numpy(), weights=w))
+    var_sampling = (mean_rate / mean_exposure_eff) if mean_exposure_eff > 0 else 0.0
+
+    var_true = var_observed - var_sampling
+
+    if not np.isfinite(var_true) or var_true <= 1e-12:
         print("  INFO: No detectable true variance -> using strong prior m=100,000")
         return 100000.0
 
     m_est = (mean_rate**2) / var_true
     m_bounded = float(max(1000.0, min(100000.0, m_est)))
 
-    print(f"  EB prior auto-calibration: m_est={m_est:.1f} -> m={m_bounded:.1f}")
+    print(
+        f"  EB prior auto-calibration: n={n_valid}, "
+        f"m_est={m_est:.3g} -> m={m_bounded:.1f}"
+    )
     return m_bounded
 
 
@@ -381,7 +407,18 @@ def main() -> None:
         for key, gg in grouped:
             gg = gg.copy()
             if args.m_prior is None:
-                m_prior = compute_optimal_eb_prior(gg["crash_count"], gg["exposure_trips"])
+                gg_credible = gg[gg["exposure_trips"] >= min_trips].copy()
+                n_credible = len(gg_credible)
+                if n_credible >= 30:
+                   m_prior = compute_optimal_eb_prior(
+                      gg["crash_count"],
+                      gg["exposure_trips"],
+                      min_exposure_for_fit=min_trips,
+             )
+                   print(f"  EB prior from {n_credible} credible stations (≥{min_trips} trips): m={m_prior:.1f}")  
+                else:
+                   print(f"  WARNING: Only {n_credible} credible stations -> using m=20000")   
+                   m_prior = 20000.0
             else:
                 m_prior = float(args.m_prior)
                 # don't spam prints for every subgroup if user explicitly set it
