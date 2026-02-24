@@ -118,6 +118,17 @@ def parse_radii_m(raw: str) -> List[float]:
 def write_csv(df: pd.DataFrame, out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_path, index=False)
+    
+def normalize_station_id_series(s: pd.Series) -> pd.Series:
+    """
+    Keep station IDs as strings and remove only a trailing '.0' artifact.
+    Does NOT touch real decimal IDs like '6602.05'.
+    """
+    return (
+        s.astype("string")
+         .str.strip()
+         .str.replace(r"\.0$", "", regex=True)
+    )    
 
 
 # -----------------------------
@@ -238,6 +249,8 @@ def compute_station_exposure(
             # starts
             st = df[[start_id, start_name]].copy()
             st.columns = ["station_id", "station_name"]
+            st["station_id"] = normalize_station_id_series(st["station_id"])  # added unify station IDs to string
+            st["station_name"] = st["station_name"].astype("string")          # added unify station IDs to string  
             st["start_trips"] = 1
             if start_lat and start_lng:
                 st["station_lat"] = pd.to_numeric(df[start_lat], errors="coerce")
@@ -249,6 +262,8 @@ def compute_station_exposure(
             # ends
             en = df[[end_id, end_name]].copy()
             en.columns = ["station_id", "station_name"]
+            en["station_id"] = normalize_station_id_series(en["station_id"])  # added unify station IDs to string
+            en["station_name"] = en["station_name"].astype("string")          # added unify station name to string
             en["end_trips"] = 1
             if end_lat and end_lng:
                 en["station_lat"] = pd.to_numeric(df[end_lat], errors="coerce")
@@ -288,6 +303,9 @@ def compute_station_exposure(
 
     # rename to match downstream
     g = g.rename(columns={"station_id": "start_station_id", "station_name": "start_station_name"})
+    #This guarantees the risk CSV will contain for example 119 not 119.0, while keeping modern IDs like 6602.05.
+    g["start_station_id"] = normalize_station_id_series(g["start_station_id"])
+    g["start_station_name"] = g["start_station_name"].astype("string")
 
     # hygiene filter
     hygienic = apply_nyc_jc_station_hygiene(g, mode_filter=mode_filter)
