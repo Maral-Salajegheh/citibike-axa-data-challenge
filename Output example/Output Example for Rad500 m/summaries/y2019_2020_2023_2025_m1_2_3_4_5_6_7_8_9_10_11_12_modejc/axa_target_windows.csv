@@ -1,0 +1,29 @@
+window_type,segment,window_label,trips,pct_of_mode_year_trips,pct_within_week_part,priority_metric,recommended_action
+hour_peak,weekday,18:00,217562,8.038170243156479,10.907309775579002,10.907309775579002,Acquisition + product upsell (commute peaks); consider safety nudge
+hour_peak,weekday,17:00,214067,7.909041971676019,10.732090538462002,10.732090538462002,Acquisition + product upsell (commute peaks); consider safety nudge
+hour_peak,weekday,08:00,176029,6.503668240467507,8.825083573810664,8.825083573810664,Acquisition + product upsell (commute peaks); consider safety nudge
+hour_peak,weekday,19:00,153427,5.668601804987861,7.691949039527855,7.691949039527855,Acquisition + product upsell (commute peaks); consider safety nudge
+hour_peak,weekday,16:00,135727,5.0146474687348865,6.804572645544769,6.804572645544769,Acquisition + product upsell (commute peaks); consider safety nudge
+hour_peak,weekend,13:00,54992,2.0317659242499198,7.723953497844703,7.723953497844703,Leisure targeting + safety messaging
+hour_peak,weekend,15:00,54914,2.0288840915816864,7.7129979338930035,7.7129979338930035,Leisure targeting + safety messaging
+hour_peak,weekend,16:00,54101,1.998846528001253,7.598807248088746,7.598807248088746,Leisure targeting + safety messaging
+hour_peak,weekend,12:00,54035,1.9964080542050555,7.58953715551423,7.58953715551423,Leisure targeting + safety messaging
+hour_peak,weekend,14:00,53477,1.9757918666553858,7.511162736475145,7.511162736475145,Leisure targeting + safety messaging
+commuter_hours,weekday,18:00,217562,8.038170243156479,10.907309775579002,10.907309775579002,Strong commuter acquisition + product bundle
+commuter_hours,weekday,17:00,214067,7.909041971676019,10.732090538462002,10.732090538462002,Strong commuter acquisition + product bundle
+commuter_hours,weekday,08:00,176029,6.503668240467507,8.825083573810664,8.825083573810664,Strong commuter acquisition + product bundle
+commuter_hours,weekday,19:00,153427,5.668601804987861,7.691949039527855,7.691949039527855,Strong commuter acquisition + product bundle
+commuter_hours,weekday,16:00,135727,5.0146474687348865,6.804572645544769,6.804572645544769,Strong commuter acquisition + product bundle
+commuter_hours,weekday,07:00,132508,4.8957164513112525,6.64319046406276,6.64319046406276,Strong commuter acquisition + product bundle
+commuter_hours,weekday,09:00,91542,3.3821631553259777,4.589390387457612,4.589390387457612,Strong commuter acquisition + product bundle
+day_of_week_peak,weekday,Friday,410039,15.149535710894547,20.557001650419824,20.557001650419824,Campaign scheduling + staffing/ops alignment
+day_of_week_peak,weekday,Wednesday,408838,15.105162877118286,20.496790404703795,20.496790404703795,Campaign scheduling + staffing/ops alignment
+day_of_week_peak,weekday,Thursday,405113,14.967536893923802,20.31004028789097,20.31004028789097,Campaign scheduling + staffing/ops alignment
+day_of_week_peak,weekend,Saturday,376172,13.898266134291184,52.83559490819098,52.83559490819098,Campaign scheduling + staffing/ops alignment
+day_of_week_peak,weekend,Sunday,335795,12.40647436960834,47.16440509180903,47.16440509180903,Campaign scheduling + staffing/ops alignment
+month_peak,overall,2025-09,115120,11.57053533827634,11.57053533827634,3837.3333333333335,Seasonal campaign planning
+month_peak,overall,2023-08,111469,11.333609889316602,11.333609889316602,3595.7741935483878,Seasonal campaign planning
+month_peak,overall,2025-08,107647,10.819435524317523,10.819435524317523,3472.483870967742,Seasonal campaign planning
+month_peak,overall,2025-07,106944,10.748778068247262,10.748778068247262,3449.8064516129034,Seasonal campaign planning
+month_peak,overall,2023-07,105977,10.775210823099746,10.775210823099746,3418.6129032258063,Seasonal campaign planning
+month_peak,overall,2025-10,103141,10.366544347855802,10.366544347855802,3327.1290322580644,Seasonal campaign planning
